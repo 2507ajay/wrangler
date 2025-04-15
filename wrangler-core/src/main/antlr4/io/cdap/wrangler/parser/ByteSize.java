@@ -1,40 +1,51 @@
 package io.cdap.wrangler.api.parser;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ByteSize implements Token {
-  private static final Pattern PATTERN = Pattern.compile("(?i)(\\d+(\\.\\d+)?)(B|KB|MB|GB|TB|KiB|MiB|GiB)");
-  private final long bytes;
+  private final String input;
+  private final double value;
+  private final String unit;
 
-  public ByteSize(String value) {
-    Matcher matcher = PATTERN.matcher(value.trim());
-    if (!matcher.matches()) {
-      throw new IllegalArgumentException("Invalid byte size: " + value);
+  private static final Map<String, Long> UNIT_MAP = new HashMap<>();
+
+  static {
+    UNIT_MAP.put("B", 1L);
+    UNIT_MAP.put("KB", 1024L);
+    UNIT_MAP.put("MB", 1024L * 1024);
+    UNIT_MAP.put("GB", 1024L * 1024 * 1024);
+    UNIT_MAP.put("TB", 1024L * 1024 * 1024 * 1024);
+    UNIT_MAP.put("KiB", 1024L);
+    UNIT_MAP.put("MiB", 1024L * 1024);
+    UNIT_MAP.put("GiB", 1024L * 1024 * 1024);
+  }
+
+  public ByteSize(String input) {
+    this.input = input.trim();
+    int index = findFirstUnitIndex(this.input);
+    this.value = Double.parseDouble(this.input.substring(0, index));
+    this.unit = this.input.substring(index).toUpperCase();
+  }
+
+  private int findFirstUnitIndex(String input) {
+    for (int i = 0; i < input.length(); i++) {
+      if (!Character.isDigit(input.charAt(i)) && input.charAt(i) != '.') {
+        return i;
+      }
     }
-
-    double number = Double.parseDouble(matcher.group(1));
-    String unit = matcher.group(3).toUpperCase();
-
-    switch (unit) {
-      case "B":   bytes = (long) number; break;
-      case "KB":  bytes = (long) (number * 1000); break;
-      case "MB":  bytes = (long) (number * 1000 * 1000); break;
-      case "GB":  bytes = (long) (number * 1000 * 1000 * 1000); break;
-      case "TB":  bytes = (long) (number * 1000 * 1000 * 1000 * 1000); break;
-      case "KIB": bytes = (long) (number * 1024); break;
-      case "MIB": bytes = (long) (number * 1024 * 1024); break;
-      case "GIB": bytes = (long) (number * 1024 * 1024 * 1024); break;
-      default: throw new IllegalArgumentException("Unknown byte unit: " + unit);
-    }
+    throw new IllegalArgumentException("No unit found in byte size string: " + input);
   }
 
   public long getBytes() {
-    return bytes;
+    if (!UNIT_MAP.containsKey(unit)) {
+      throw new IllegalArgumentException("Unknown byte unit: " + unit);
+    }
+    return (long) (value * UNIT_MAP.get(unit));
   }
 
   @Override
   public String toString() {
-    return bytes + " bytes";
+    return input;
   }
 }
