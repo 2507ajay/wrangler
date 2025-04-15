@@ -1,38 +1,49 @@
 package io.cdap.wrangler.api.parser;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TimeDuration implements Token {
-  private static final Pattern PATTERN = Pattern.compile("(?i)(\\d+(\\.\\d+)?)(ns|us|ms|s|m|h)");
-  private final long millis;
+  private final String input;
+  private final double value;
+  private final String unit;
 
-  public TimeDuration(String value) {
-    Matcher matcher = PATTERN.matcher(value.trim());
-    if (!matcher.matches()) {
-      throw new IllegalArgumentException("Invalid time duration: " + value);
-    }
+  private static final Map<String, Long> UNIT_MAP = new HashMap<>();
 
-    double number = Double.parseDouble(matcher.group(1));
-    String unit = matcher.group(3).toLowerCase();
-
-    switch (unit) {
-      case "ns": millis = (long) (number / 1_000_000); break;
-      case "us": millis = (long) (number / 1_000); break;
-      case "ms": millis = (long) number; break;
-      case "s":  millis = (long) (number * 1000); break;
-      case "m":  millis = (long) (number * 60 * 1000); break;
-      case "h":  millis = (long) (number * 60 * 60 * 1000); break;
-      default: throw new IllegalArgumentException("Unknown time unit: " + unit);
-    }
+  static {
+    UNIT_MAP.put("NS", 1L);
+    UNIT_MAP.put("US", 1000L);
+    UNIT_MAP.put("MS", 1000L * 1000);
+    UNIT_MAP.put("S", 1000L * 1000 * 1000);
+    UNIT_MAP.put("M", 60L * 1000 * 1000 * 1000);
+    UNIT_MAP.put("H", 60L * 60 * 1000 * 1000 * 1000);
   }
 
-  public long getMillis() {
-    return millis;
+  public TimeDuration(String input) {
+    this.input = input.trim();
+    int index = findFirstUnitIndex(this.input);
+    this.value = Double.parseDouble(this.input.substring(0, index));
+    this.unit = this.input.substring(index).toUpperCase();
+  }
+
+  private int findFirstUnitIndex(String input) {
+    for (int i = 0; i < input.length(); i++) {
+      if (!Character.isDigit(input.charAt(i)) && input.charAt(i) != '.') {
+        return i;
+      }
+    }
+    throw new IllegalArgumentException("No unit found in time duration string: " + input);
+  }
+
+  public long getNanoseconds() {
+    if (!UNIT_MAP.containsKey(unit)) {
+      throw new IllegalArgumentException("Unknown time unit: " + unit);
+    }
+    return (long) (value * UNIT_MAP.get(unit));
   }
 
   @Override
   public String toString() {
-    return millis + " ms";
+    return input;
   }
 }
