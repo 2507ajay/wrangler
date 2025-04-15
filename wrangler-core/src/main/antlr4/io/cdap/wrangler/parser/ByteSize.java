@@ -1,0 +1,40 @@
+package io.cdap.wrangler.api.parser;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class ByteSize implements Token {
+  private static final Pattern PATTERN = Pattern.compile("(?i)(\\d+(\\.\\d+)?)(B|KB|MB|GB|TB|KiB|MiB|GiB)");
+  private final long bytes;
+
+  public ByteSize(String value) {
+    Matcher matcher = PATTERN.matcher(value.trim());
+    if (!matcher.matches()) {
+      throw new IllegalArgumentException("Invalid byte size: " + value);
+    }
+
+    double number = Double.parseDouble(matcher.group(1));
+    String unit = matcher.group(3).toUpperCase();
+
+    switch (unit) {
+      case "B":   bytes = (long) number; break;
+      case "KB":  bytes = (long) (number * 1000); break;
+      case "MB":  bytes = (long) (number * 1000 * 1000); break;
+      case "GB":  bytes = (long) (number * 1000 * 1000 * 1000); break;
+      case "TB":  bytes = (long) (number * 1000 * 1000 * 1000 * 1000); break;
+      case "KIB": bytes = (long) (number * 1024); break;
+      case "MIB": bytes = (long) (number * 1024 * 1024); break;
+      case "GIB": bytes = (long) (number * 1024 * 1024 * 1024); break;
+      default: throw new IllegalArgumentException("Unknown byte unit: " + unit);
+    }
+  }
+
+  public long getBytes() {
+    return bytes;
+  }
+
+  @Override
+  public String toString() {
+    return bytes + " bytes";
+  }
+}
